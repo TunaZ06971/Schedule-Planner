@@ -1,0 +1,18 @@
+# 课程日历。
+# 这个文件要放到服务器的 /etc/caddy/sites/schedule.caddy
+# 放好之后跑：systemctl reload caddy
+#
+# /etc/caddy/Caddyfile 里只有一行 `import /etc/caddy/sites/*.caddy`，
+# 所以往这个目录里丢文件就等于加站点，不用改别的地方。
+
+schedule.cks06971.com {
+	encode zstd gzip
+
+	reverse_proxy 127.0.0.1:8132
+
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+}

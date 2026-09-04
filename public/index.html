@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="dark light">
+<title>课程日历 · Fall 2026</title>
+<link rel="stylesheet" href="/style.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🗓️</text></svg>">
+</head>
+<body data-theme="dark">
+
+<div class="app">
+
+  <header class="topbar">
+    <div class="group">
+      <button class="icon-btn" id="btn-panel" title="收起 / 展开侧边栏">▤</button>
+      <h1 class="heading">课程日历</h1>
+      <span class="separator"></span>
+    </div>
+
+    <nav class="tabs" id="tabs">
+      <button data-view="calendar" class="on">日历</button>
+      <button data-view="list">清单</button>
+      <button data-view="load">工作量</button>
+    </nav>
+
+    <div class="actions">
+      <button id="btn-refresh" title="立即重新抓取全部课程网站">↻ 刷新</button>
+      <a class="btn" href="/api/calendar.ics" title="在系统日历里订阅">订阅</a>
+      <button id="btn-add" title="加一个自己的事件">＋ 事件</button>
+      <button id="btn-key" title="输入口令后才能勾选和加事件">🔑</button>
+    </div>
+  </header>
+
+  <div class="body">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="view" id="view"><div class="loading">正在加载…</div></div>
+  </div>
+
+</div>
+
+<!-- 选 section 的弹窗 -->
+<div class="modal" id="modal-sections" hidden>
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>我的 discussion / lab 时段</h2>
+      <button class="x" data-close>✕</button>
+    </div>
+    <p class="hint">课程日历里有<b>全部</b>时段（几十个），选中你自己那场，日历上才只显示你的。
+      lecture 一直都会显示，不用选。</p>
+    <div id="sections-body"></div>
+  </div>
+</div>
+
+<!-- 加自定义事件的弹窗 -->
+<div class="modal" id="modal-add" hidden>
+  <div class="sheet">
+    <div class="sheet-head">
+      <h2>加一个自己的事件</h2>
+      <button class="x" data-close>✕</button>
+    </div>
+    <form id="form-add">
+      <div class="seg" id="kind-seg">
+        <button type="button" data-kind="deadline" class="on">截止时间（一个时间点）</button>
+        <button type="button" data-kind="block">时间段（画在日历上）</button>
+      </div>
+      <input type="hidden" name="kind" value="deadline">
+
+      <label>名称 <input name="title" required placeholder="比如 X410 / 社团活动 / 面试"></label>
+
+      <div class="row2">
+        <label>日期 <input name="dueDate" type="date" required></label>
+        <label class="only-deadline">截止时刻 <input name="clock" type="time" value="23:59"></label>
+        <label class="only-block" hidden>重复
+          <select name="repeat">
+            <option value="once">只这一次</option>
+            <option value="weekly">每周这一天</option>
+          </select>
+        </label>
+      </div>
+
+      <div class="row2 only-block" hidden>
+        <label>开始 <input name="startTime" type="time" value="15:00"></label>
+        <label>结束 <input name="endTime" type="time" value="17:00"></label>
+      </div>
+
+      <label class="only-block" hidden>地点 <input name="location" placeholder="比如 Cory 285，可留空"></label>
+
+      <label>类型
+        <select name="type">
+          <option value="custom">自定义</option>
+          <option value="homework">作业</option>
+          <option value="project">项目</option>
+          <option value="group_project">小组项目</option>
+          <option value="exam">考试</option>
+          <option value="lab">Lab</option>
+          <option value="discussion">Discussion</option>
+        </select>
+      </label>
+
+      <label>链接 <input name="url" type="url" placeholder="https://… 点标题就能跳过去"></label>
+      <label>备注 <input name="note" placeholder="可留空"></label>
+      <label>颜色</label>
+      <div class="swatches" id="add-swatches"></div>
+      <input type="hidden" name="color" value="amber">
+
+      <div class="form-actions">
+        <button type="submit" class="primary" id="add-submit">添加</button>
+        <button type="button" id="add-cancel" class="ghost" hidden>取消编辑</button>
+        <button type="button" id="add-delete" class="ghost danger" hidden>删除</button>
+      </div>
+    </form>
+    <div id="custom-list"></div>
+  </div>
+</div>
+
+<!-- 口令 -->
+<div class="modal" id="modal-auth" hidden>
+  <div class="sheet narrow">
+    <div class="sheet-head">
+      <h2>输入写入口令</h2>
+      <button class="x" data-close>✕</button>
+    </div>
+    <p class="hint">这个网页任何人都能看，但<b>勾选完成、加事件、改颜色</b>需要口令。
+      输一次就记住了，除非你换设备或清了浏览器数据。</p>
+    <form id="form-auth">
+      <label>口令 <input name="token" type="password" autocomplete="current-password" required></label>
+      <p class="err" id="auth-err" hidden>口令不对，再试一次</p>
+      <div class="form-actions">
+        <button type="submit" class="primary" id="auth-submit">确定</button>
+        <button type="button" class="ghost" data-close>取消</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 官网条目：只能加备注/链接/改颜色/隐藏，日期标题动不了 -->
+<div class="modal" id="modal-item" hidden>
+  <div class="sheet narrow">
+    <div class="sheet-head">
+      <h2 id="item-title">条目</h2>
+      <button class="x" data-close>✕</button>
+    </div>
+    <p class="hint" id="item-sub"></p>
+    <form id="form-item">
+      <label>我的链接 <input name="url" type="url" placeholder="https://… 比如你的 Gradescope 提交页"></label>
+      <label>我的备注 <input name="note" placeholder="可留空"></label>
+      <label>颜色</label>
+      <div class="swatches" id="item-swatches"></div>
+      <div class="form-actions">
+        <button type="submit" class="primary">保存</button>
+        <button type="button" class="ghost" id="item-hide">隐藏这一条</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- 课程取色 -->
+<div class="modal" id="modal-color" hidden>
+  <div class="sheet narrow">
+    <div class="sheet-head">
+      <h2 id="color-title">选择颜色</h2>
+      <button class="x" data-close>✕</button>
+    </div>
+    <div class="swatches wide" id="course-swatches"></div>
+  </div>
+</div>
+
+<!-- 日历上悬浮时显示的详情卡（照 Berkeleytime 的 hover card） -->
+<div id="hovercard" hidden></div>
+
+<script src="/app.js" type="module"></script>
+</body>
+</html>

@@ -1,0 +1,46 @@
+# systemd 服务单元。
+# 放到 /etc/systemd/system/schedule.service，然后：
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now schedule
+
+[Unit]
+Description=课程日历（课程 deadline 汇总）
+After=network.target
+
+[Service]
+Type=simple
+User=schedule
+WorkingDirectory=/opt/schedule
+ExecStart=/usr/bin/node server/server.js
+Restart=always
+RestartSec=3
+
+# 只监听回环，外面由 Caddy 转进来
+Environment=HOST=127.0.0.1
+Environment=PORT=8132
+Environment=NODE_ENV=production
+Environment=DATA_DIR=/opt/schedule/data
+
+# 服务器和课程网站都按太平洋时间理解日期，这里锁死时区，
+# 免得机器所在时区（东京）把 deadline 算歪一天
+Environment=TZ=America/Los_Angeles
+
+# 每小时抓一次（毫秒）。想改频率就改这里，然后 systemctl restart schedule
+Environment=REFRESH_MS=3600000
+
+# 写入口令等私密配置放在服务器本机，不进代码库。
+# 参考 deploy/schedule.env.example，把真实文件保存为 /etc/schedule.env 并设为 600。
+EnvironmentFile=/etc/schedule.env
+
+KillSignal=SIGTERM
+TimeoutStopSec=15
+
+# 基本加固
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ProtectHome=true
+ReadWritePaths=/opt/schedule/data
+
+[Install]
+WantedBy=multi-user.target

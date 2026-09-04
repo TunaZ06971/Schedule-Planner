@@ -1,0 +1,24 @@
+{
+  "name": "schedule-planner",
+  "version": "1.0.0",
+  "description": "A Berkeley course deadline planner for CS 61B, CS 61C, and CS 162.",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/TunaZ06971/Schedule-Planner.git"
+  },
+  "scripts": {
+    "start": "node server/server.js",
+    "scrape": "node scrapers/index.js",
+    "test": "node --test test/*.test.js"
+  },
+  "dependencies": {
+    "cheerio": "^1.0.0",
+    "node-ical": "^0.20.1"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
