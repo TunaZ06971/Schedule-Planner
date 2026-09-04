@@ -28,18 +28,18 @@ const esc = (s) =>
 const stamp = (iso) => new Date(iso).toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '')
 
 const TYPE_LABEL = {
-  homework: '作业', lab: 'Lab', project: '项目', group_project: '小组项目',
-  discussion: 'Discussion', exam: '考试', lecture: '课', custom: '自定义',
+  homework: 'Homework', lab: 'Lab', project: 'Project', group_project: 'Group Project',
+  discussion: 'Discussion', exam: 'Exam', lecture: 'Lecture', custom: 'Custom',
 }
 
 export function buildICS(payload) {
   const lines = [
     'BEGIN:VCALENDAR',
     'VERSION:2.0',
-    'PRODID:-//Schedule_Design//课程日历//CN',
+    'PRODID:-//Schedule_Design//Course Calendar//EN',
     'CALSCALE:GREGORIAN',
     'METHOD:PUBLISH',
-    'X-WR-CALNAME:课程 Deadline',
+    'X-WR-CALNAME:Course Deadlines',
     'X-WR-TIMEZONE:America/Los_Angeles',
   ]
 
@@ -72,10 +72,10 @@ export function buildICS(payload) {
     const notes = []
     // 个人标注排在最前 —— 订阅到手机日历上，这才是你自己写的东西
     if (e.userNote) notes.push(`📝 ${e.userNote}`)
-    if (e.provisional) notes.push('⚠️ 课程组标为暂定，日期可能会变')
-    if (e.inferred) notes.push(`⚠️ ${e.inferredNote || '按 registrar 规则推算，非官方公布'}`)
-    if (e.timeAssumed) notes.push('⚠️ 官网未公布具体时间')
-    if (e.hardDeadline) notes.push('硬截止：不能用 slip day，迟交 0 分')
+    if (e.provisional) notes.push('⚠️ Marked tentative by the course staff — the date may change')
+    if (e.inferred) notes.push(`⚠️ ${e.inferredNote || 'Inferred from the registrar\u2019s rules — not officially published'}`)
+    if (e.timeAssumed) notes.push('⚠️ No specific time published')
+    if (e.hardDeadline) notes.push('Hard deadline: no slip days, late = 0')
     if (e.userUrl) notes.push(e.userUrl)
     if (e.url && e.url !== e.userUrl) notes.push(e.url)
     if (notes.length) lines.push(fold(`DESCRIPTION:${esc(notes.join('\n'))}`))

@@ -18,11 +18,11 @@ export const TERM = {
 // 学期内的假期 / 非教学日。这几天不上课，必须从每周固定课程里排除掉 ——
 // Google Calendar 的 ICS 里不一定带了 EXDATE，不能假定。
 export const HOLIDAYS = [
-  { date: '2026-09-07', name: '劳动节 Labor Day' },
-  { date: '2026-11-11', name: '退伍军人节 Veterans Day' },
-  { date: '2026-11-25', name: '感恩节前非教学日' },
-  { date: '2026-11-26', name: '感恩节 Thanksgiving' },
-  { date: '2026-11-27', name: '感恩节次日' },
+  { date: '2026-09-07', name: 'Labor Day' },
+  { date: '2026-11-11', name: 'Veterans Day' },
+  { date: '2026-11-25', name: 'Non-instructional day' },
+  { date: '2026-11-26', name: 'Thanksgiving' },
+  { date: '2026-11-27', name: 'Day after Thanksgiving' },
 ]
 
 const HOLIDAY_SET = new Set(HOLIDAYS.map((h) => h.date))
@@ -41,14 +41,14 @@ export const isHoliday = (isoDate) => HOLIDAY_SET.has(isoDate)
 export const FINAL_EXAM_GROUPS = [
   { group: 1,  date: '2026-12-14', start: '08:00', end: '11:00', pattern: 'MWF',  at: '10:00' },
   { group: 2,  date: '2026-12-14', start: '11:30', end: '14:30', pattern: 'MWF',  at: '11:00' },
-  { group: 3,  date: '2026-12-14', start: '15:00', end: '18:00', pattern: null,   note: '公共考试：Chem 1A/1B/3A/3B/4A/4B/32、Econ 140' },
+  { group: 3,  date: '2026-12-14', start: '15:00', end: '18:00', pattern: null,   note: 'Common exam: Chem 1A/1B/3A/3B/4A/4B/32, Econ 140' },
   { group: 4,  date: '2026-12-14', start: '19:00', end: '22:00', pattern: 'MWF',  at: '08:00' },
   { group: 5,  date: '2026-12-15', start: '08:00', end: '11:00', pattern: 'TuTh', at: '14:00' },
-  { group: 6,  date: '2026-12-15', start: '11:30', end: '14:30', pattern: null,   note: '公共考试：Econ 1 & 100B、UGBA 101B、DATA C8' },
+  { group: 6,  date: '2026-12-15', start: '11:30', end: '14:30', pattern: null,   note: 'Common exam: Econ 1 & 100B, UGBA 101B, DATA C8' },
   { group: 7,  date: '2026-12-15', start: '15:00', end: '18:00', pattern: 'TuTh', at: '09:00' },
   { group: 8,  date: '2026-12-15', start: '19:00', end: '22:00', pattern: 'MWF',  at: '15:00' },
   { group: 9,  date: '2026-12-16', start: '08:00', end: '11:00', pattern: 'TuTh', at: '11:00' },
-  { group: 10, date: '2026-12-16', start: '11:30', end: '14:30', pattern: null,   note: '线上课程 & 初级外语' },
+  { group: 10, date: '2026-12-16', start: '11:30', end: '14:30', pattern: null,   note: 'Online courses & elementary foreign languages' },
   { group: 11, date: '2026-12-16', start: '15:00', end: '18:00', pattern: 'TuTh', at: '08:00' },
   { group: 12, date: '2026-12-16', start: '19:00', end: '22:00', pattern: 'MWF',  at: '13:00' },
   { group: 13, date: '2026-12-17', start: '08:00', end: '11:00', pattern: 'MWF',  at: '16:00' },

@@ -308,7 +308,7 @@ async function readBody(req, limit = 256 * 1024) {
   let size = 0
   for await (const c of req) {
     size += c.length
-    if (size > limit) throw new Error('请求体过大')
+    if (size > limit) throw new Error('Request body too large')
     chunks.push(c)
   }
   if (!chunks.length) return {}
@@ -327,7 +327,7 @@ const server = http.createServer(async (req, res) => {
 
     // 个人层：要口令。GET 也要验，不能只拦 POST —— 之前就是漏了这一条。
     if (p === '/api/mine') {
-      if (!authorized(req)) return json(res, 401, { error: '需要口令' })
+      if (!authorized(req)) return json(res, 401, { error: 'Password required' })
       return json(res, 200, await buildMine())
     }
 
@@ -356,14 +356,14 @@ const server = http.createServer(async (req, res) => {
 
     // ---- 以下都要口令 ----
     if (p.startsWith('/api/') && req.method === 'POST') {
-      if (!authorized(req)) return json(res, 401, { error: '需要口令' })
+      if (!authorized(req)) return json(res, 401, { error: 'Password required' })
       const body = await readBody(req)
       const state = await loadState()
 
       if (p === '/api/state') {
         // { id, done: true|false }
         const { id, done } = body
-        if (typeof id !== 'string' || !id) return json(res, 400, { error: '缺少 id' })
+        if (typeof id !== 'string' || !id) return json(res, 400, { error: 'Missing id' })
         state.done = state.done || {}
         if (done) state.done[id] = new Date().toISOString()
         else delete state.done[id]
@@ -382,7 +382,7 @@ const server = http.createServer(async (req, res) => {
         }
 
         const e = body.event || {}
-        if (!e.title || !e.dueDate) return json(res, 400, { error: '缺少标题或日期' })
+        if (!e.title || !e.dueDate) return json(res, 400, { error: 'Title and date are required' })
 
         // 两种形态：
         //   deadline —— 只有一个截止时刻，显示在顶部全天条（原来只支持这个）
@@ -415,7 +415,7 @@ const server = http.createServer(async (req, res) => {
 
         if (body.action === 'update') {
           const i = state.custom.findIndex((x) => x.id === e.id)
-          if (i === -1) return json(res, 404, { error: '找不到这个事件' })
+          if (i === -1) return json(res, 404, { error: 'Event not found' })
           state.custom[i] = { ...state.custom[i], ...shaped }
         } else {
           state.custom.push({ id: `custom:${randomUUID().slice(0, 8)}`, ...shaped })
@@ -427,8 +427,8 @@ const server = http.createServer(async (req, res) => {
 
       if (p === '/api/colors') {
         // { course, hue } —— 改某门课的颜色
-        if (!isHue(body.hue)) return json(res, 400, { error: '不认识这个颜色' })
-        if (!COURSES.some((c) => c.key === body.course)) return json(res, 400, { error: '没有这门课' })
+        if (!isHue(body.hue)) return json(res, 400, { error: 'Unknown color' })
+        if (!COURSES.some((c) => c.key === body.course)) return json(res, 400, { error: 'No such course' })
         state.colors = { ...(state.colors || {}), [body.course]: body.hue }
         await saveState(state)
         return json(res, 200, { ok: true, colors: state.colors })
@@ -437,7 +437,7 @@ const server = http.createServer(async (req, res) => {
       if (p === '/api/item') {
         // { id, note?, url?, color?, hidden? } —— 官网条目只能加这几样，日期和标题动不了
         const id = body.id
-        if (typeof id !== 'string' || !id) return json(res, 400, { error: '缺少 id' })
+        if (typeof id !== 'string' || !id) return json(res, 400, { error: 'Missing id' })
 
         if (body.hidden !== undefined) {
           state.hidden = state.hidden || {}
@@ -484,7 +484,7 @@ const server = http.createServer(async (req, res) => {
         return json(res, 200, { ok: true, ...r })
       }
 
-      return json(res, 404, { error: '没有这个接口' })
+      return json(res, 404, { error: 'No such endpoint' })
     }
 
     // ---- 静态文件 ----

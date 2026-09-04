@@ -24,11 +24,11 @@ export async function scrape(course, { html } = {}) {
   const $ = load(body)
 
   const table = $('table.spanned-table').first()
-  if (!table.length) throw new Error('cs61b: 找不到课表 table.spanned-table')
+  if (!table.length) throw new Error('cs61b: schedule table (table.spanned-table) not found')
 
   const grid = gridFromTable($, table[0])
   const trs = $(table[0]).find('tr').toArray()
-  if (grid.length < 20) throw new Error(`cs61b: 课表只有 ${grid.length} 行，明显不对`)
+  if (grid.length < 20) throw new Error(`cs61b: schedule table has only ${grid.length} rows — clearly wrong`)
 
   const events = []
   const seen = new Set()
@@ -130,7 +130,7 @@ export async function scrape(course, { html } = {}) {
         url: course.home,
         provisional: true,
         inferred: true,
-        inferredNote: `官网未公布，按 registrar 期末考试 Group ${g.group}（${course.lecture.days} ${course.lecture.start} 开课）推算`,
+        inferredNote: `Not published by the course; inferred from registrar final-exam Group ${g.group} (${course.lecture.days} ${course.lecture.start} lecture)`,
         timeAssumed: false,
         sourceUrl: 'https://registrar.berkeley.edu/calendars/final-exam-groups/',
       })

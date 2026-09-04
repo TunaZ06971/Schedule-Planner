@@ -7,12 +7,14 @@
 // 否则用户回国的时候，所有 deadline 的日期会整体偏移一天，那正是最危险的错记来源。
 
 const TZ = 'America/Los_Angeles'
-const WD_CN = ['日', '一', '二', '三', '四', '五', '六']
+const WD_SHORT = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December']
 const WD_EN = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 const TYPE_LABEL = {
-  homework: '作业', lab: 'Lab', project: '项目', group_project: '小组项目',
-  discussion: 'Disc', exam: '考试', lecture: '课', checkpoint: '检查点',
-  custom: '自定义', other: '其他', review: '复习课', office_hours: 'OH',
+  homework: 'Homework', lab: 'Lab', project: 'Project', group_project: 'Group Project',
+  discussion: 'Discussion', exam: 'Exam', lecture: 'Lecture', checkpoint: 'Checkpoint',
+  custom: 'Custom', other: 'Other', review: 'Review', office_hours: 'Office Hours',
 }
 
 /** 清单里那个实心圆角标签上写的字（用英文，和 Berkeleytime 的语感一致） */
@@ -75,13 +77,13 @@ function countdown(dueISO) {
   const ms = new Date(dueISO) - new Date()
   if (ms < 0) {
     const d = Math.floor(-ms / 86400000)
-    return { text: d === 0 ? '已过期' : `过期 ${d} 天`, cls: 'past' }
+    return { text: d === 0 ? 'Overdue' : `${d}d overdue`, cls: 'past' }
   }
   const days = Math.floor(ms / 86400000)
   const hrs = Math.floor((ms % 86400000) / 3600000)
-  if (days === 0) return { text: `${hrs} 小时后`, cls: 'now' }
-  if (days <= 2) return { text: `${days} 天 ${hrs} 小时`, cls: 'soon' }
-  return { text: `${days} 天`, cls: '' }
+  if (days === 0) return { text: `in ${hrs}h`, cls: 'now' }
+  if (days <= 2) return { text: `${days}d ${hrs}h`, cls: 'soon' }
+  return { text: `${days} days`, cls: '' }
 }
 
 // ---------------------------------------------------------------- 重叠分列
@@ -245,7 +247,7 @@ async function post(path, body) {
     if (!r) throw new Error(CANCELLED)
   }
 
-  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || '请求失败')
+  if (!r.ok) throw new Error((await r.json().catch(() => ({}))).error || 'Request failed')
   return r.json()
 }
 
@@ -278,11 +280,11 @@ function askTokenAndRun(run) {
       const v = form.token.value.trim()
       if (!v) return
       submit.disabled = true
-      submit.textContent = '提交中…'
+      submit.textContent = 'Submitting…'
       try {
         const r = await run(v)           // ← 直接跑真正的操作，不再单独校验一次
         if (r.status === 401) {
-          err.textContent = '口令不对，再试一次'
+          err.textContent = 'Wrong password — try again'
           err.hidden = false
           form.token.select()
         } else {
@@ -292,11 +294,11 @@ function askTokenAndRun(run) {
           done(r)
         }
       } catch {
-        err.textContent = '连不上服务器，检查一下网络'
+        err.textContent = 'Cannot reach the server — check your connection'
         err.hidden = false
       } finally {
         submit.disabled = false
-        submit.textContent = '确定'
+        submit.textContent = 'OK'
       }
     }
 
@@ -321,7 +323,7 @@ function patchAndReconcile(patch) {
     patch()
   } catch (err) {
     // 本地补丁失败不致命（下面的对账会兜住），但绝不能静默 —— 否则界面"莫名其妙慢"没法查
-    console.error('[本地补丁失败，界面会等后台对账]', err)
+    console.error('[local patch failed; UI will wait for the background reconcile]', err)
   }
   render()
   load().catch(() => {})
@@ -374,7 +376,7 @@ function applyCustom(custom) {
 const markKey = () => {
   const b = document.getElementById('btn-key')
   b.classList.toggle('armed', !!token)
-  b.title = token ? '已解锁 —— 点一下可以换口令' : '输入口令后才能勾选和加事件'
+  b.title = token ? 'Unlocked — click to change the password' : 'Enter the password to check items off and add events'
 }
 
 // ---------------------------------------------------------------- 渲染
@@ -400,7 +402,7 @@ function render() {
   if (hcEl) hcEl.hidden = true
   const view = document.getElementById('view')
   if (!DATA?.ready) {
-    view.innerHTML = '<div class="loading">还没有数据，稍等一下或点 ↻ 刷新。</div>'
+    view.innerHTML = '<div class="loading">No data yet — wait a moment or hit ↻ Refresh.</div>'
     return
   }
   renderSidebar()
@@ -408,7 +410,9 @@ function render() {
   const sub = document.querySelector('.actions a[href^="/api/calendar.ics"]')
   if (sub) {
     sub.href = token ? `/api/calendar.ics?t=${encodeURIComponent(token)}` : '/api/calendar.ics'
-    sub.title = token ? '订阅（含你的备注和自己加的事件）' : '订阅（只有课程 deadline；输口令后可包含个人内容）'
+    sub.title = token
+      ? 'Subscribe (includes your notes and your own events)'
+      : 'Subscribe (course deadlines only — enter the password to include personal items)'
   }
   view.classList.toggle('cal', VIEW === 'calendar')
   view.innerHTML = VIEW === 'calendar' ? viewCalendar()
@@ -438,14 +442,14 @@ function renderSidebar() {
       <div class="left-border"></div>
       <div class="card-body">
         <div class="card-top">
-          <span class="dot" data-color="${c.key}" title="改这门课的颜色" style="--dot:${c.dot || c.color}"></span>
+          <span class="dot" data-color="${c.key}" title="Change this course\u2019s color" style="--dot:${c.dot || c.color}"></span>
           <span class="card-heading">${esc(c.name)}</span>
         </div>
         <div class="card-desc">${esc(c.full.replace(/^[^—]*— ?/, ''))}</div>
         <div class="card-info">
           <span>${c.units} units</span>
-          <span>${n} 项待办</span>
-          ${f && !f.ok ? '<span style="color:var(--red-500)">数据未更新</span>' : ''}
+          <span>${n} to do</span>
+          ${f && !f.ok ? '<span style="color:var(--red-500)">stale data</span>' : ''}
         </div>
       </div>
     </div>`
@@ -456,7 +460,7 @@ function renderSidebar() {
       <div class="card-body">
         <div class="card-top">
           <span class="card-heading">${esc(e.title)}</span>
-          <button class="del" data-del="${esc(e.id)}" title="删掉">🗑</button>
+          <button class="del" data-del="${esc(e.id)}" title="Delete">🗑</button>
         </div>
         <div class="card-desc">${e.dueDate}${e.note ? ' · ' + esc(e.note) : ''}</div>
       </div>
@@ -468,8 +472,8 @@ function renderSidebar() {
         <span class="term">${esc(DATA.term?.name || '')}</span>
         <span class="data">${classes} classes, ${units} units</span>
       </div>
-      <button class="add-btn" id="sb-add"><span>添加事件</span><span>＋</span></button>
-      <button class="add-btn" id="sb-sections"><span>我的 discussion / lab 时段</span><span>›</span></button>
+      <button class="add-btn" id="sb-add"><span>Add event</span><span>＋</span></button>
+      <button class="add-btn" id="sb-sections"><span>My discussion / lab sections</span><span>›</span></button>
     </div>
     <div class="sb-body">
       ${courseCards}
@@ -484,7 +488,7 @@ function renderSidebar() {
   el.querySelector('#sb-sections').onclick = () => openSections()
   el.querySelectorAll('[data-del]').forEach((b) => {
     b.onclick = async () => {
-      if (!confirm('删掉这个事件？')) return
+      if (!confirm('Delete this event?')) return
       try {
         const r = await post('/api/custom', { action: 'remove', id: b.dataset.del })
         patchAndReconcile(() => applyCustom(r.custom))
@@ -499,43 +503,44 @@ function sidebarNotes() {
 
   const bad = DATA.freshness.filter((f) => !f.ok)
   if (bad.length) {
-    out.push(`<div class="sb-note danger"><b>⚠️ 有课程数据没更新上</b><ul>${
+    out.push(`<div class="sb-note danger"><b>⚠️ Some course data is out of date</b><ul>${
       bad.map((f) => {
         const hrs = f.staleSince ? Math.floor((Date.now() - new Date(f.staleSince)) / 3600000) : '?'
-        return `<li>${esc(courseOf(f.key)?.name || f.key)} 已 ${hrs} 小时没抓成功，下面是旧数据</li>`
+        return `<li>${esc(courseOf(f.key)?.name || f.key)} — no successful scrape for ${hrs}h; showing older data</li>`
       }).join('')}</ul></div>`)
   }
 
   const recent = (DATA.changes || []).filter((c) => Date.now() - new Date(c.at) < 7 * 86400000)
   if (recent.length) {
-    out.push(`<div class="sb-note"><b>🔔 最近 7 天课程网站的变动</b><ul>${
+    out.push(`<div class="sb-note"><b>🔔 Changes on the course sites in the last 7 days</b><ul>${
       recent.slice(0, 5).map((c) => {
         const n = esc(courseOf(c.course)?.name || c.course)
         if (c.kind === 'moved') return `<li>${n} ${esc(c.title)}：<b>${c.from} → ${c.to}</b></li>`
-        if (c.kind === 'added') return `<li>${n} 新增 ${esc(c.title)}</li>`
-        if (c.kind === 'removed') return `<li>${n} 撤掉了 ${esc(c.title)}</li>`
-        return `<li>${n} ${esc(c.title)} 已确定</li>`
+        if (c.kind === 'added') return `<li>${n} added ${esc(c.title)}</li>`
+        if (c.kind === 'removed') return `<li>${n} removed ${esc(c.title)}</li>`
+        return `<li>${n} ${esc(c.title)} is now confirmed</li>`
       }).join('')}</ul></div>`)
   }
 
   const tbd = deadlines().filter((e) => e.type === 'exam' && (e.inferred || /TBD|TBA/i.test(e.note || '')))
   if (tbd.length) {
-    out.push(`<div class="sb-note warn"><b>📌 这几场考试时间还没定死</b><ul>${
+    out.push(`<div class="sb-note warn"><b>📌 These exam times are not fixed yet</b><ul>${
       tbd.map((e) => `<li>${esc(courseOf(e.course)?.name || '')} ${esc(e.title)} — ${e.dueDate}
-        ${e.inferred ? '（推算，官网未公布）' : '（官网写的是 TBD）'}</li>`).join('')}</ul></div>`)
+        ${e.inferred ? '(inferred — not published yet)' : '(the site still says TBD)'}</li>`).join('')}</ul></div>`)
   }
 
   if (DATA.locked) {
-    out.push(`<div class="sb-note"><b>🔒 只显示课程内容</b><br>
-      你的 section 选择、勾选记录、自己加的事件需要口令才会加载 ——
-      点右上角 🔑 输入。<br><span style="color:var(--label-color)">
-      （没有口令的人打开这个网址，看到的就是现在这样：只有三门课的公开 deadline。）</span></div>`)
+    out.push(`<div class="sb-note"><b>🔒 Showing course data only</b><br>
+      Your section picks, completed items and your own events need the password —
+      click 🔑 at the top right.<br><span style="color:var(--label-color)">
+      (Anyone opening this URL without the password sees exactly this: just the public course deadlines.)</span></div>`)
   }
 
   const t = DATA.lastRefresh ? new Date(DATA.lastRefresh) : null
   const mins = t ? Math.floor((Date.now() - t) / 60000) : null
-  const label = mins === null ? '未知' : mins < 1 ? '刚刚' : mins < 60 ? `${mins} 分钟前` : `${Math.floor(mins / 60)} 小时前`
-  out.push(`<div class="sb-note">数据更新于 ${label}　·　所有时间均为太平洋时间 (PT)</div>`)
+  const label = mins === null ? 'unknown' : mins < 1 ? 'just now'
+    : mins < 60 ? `${mins} min ago` : `${Math.floor(mins / 60)}h ago`
+  out.push(`<div class="sb-note">Data updated ${label}　·　All times are Pacific (PT)</div>`)
 
   return out.join('')
 }
@@ -581,15 +586,15 @@ function viewCalendar() {
   const nowBadge = inWeek
     ? `<div class="now-time" style="top:${nowMin - 12}px">${clockOf(new Date())}</div>` : ''
 
-  const label = `${start.slice(0, 4)} 年 ${+start.slice(5, 7)} 月 ${+start.slice(8)} – ${+days[6].slice(8)} 日`
+  const label = `${MONTHS[+start.slice(5, 7) - 1]} ${+start.slice(8)} – ${+days[6].slice(8)}, ${start.slice(0, 4)}`
 
   return `
     <div class="weeknav">
       <button id="wk-prev">‹</button>
-      <button id="wk-today">本周</button>
+      <button id="wk-today">This week</button>
       <button id="wk-next">›</button>
       <span class="label">${label}</span>
-      <span class="sub">${weekOffset === 0 ? '当前周' : weekOffset > 0 ? `+${weekOffset} 周` : `${weekOffset} 周`}</span>
+      <span class="sub">${weekOffset === 0 ? 'current week' : `${weekOffset > 0 ? '+' : ''}${weekOffset} wk`}</span>
     </div>
     <div class="cal-scroll">
       <div class="week-root">
@@ -598,7 +603,7 @@ function viewCalendar() {
           <div class="days">${head}</div>
         </div>
         <div class="allday">
-          <div class="gutter">全天<br>deadline</div>
+          <div class="gutter">all-day<br>deadlines</div>
           <div class="days">${allday}</div>
         </div>
         <div class="week-view">
@@ -614,7 +619,7 @@ function evHtml(m) {
   const c = courseOf(m.course)
   const title = c ? c.name : shortTitle(m.title)
   const desc = m.type === 'lecture' ? 'Lecture 001'
-    : m.custom ? '自己加的' : shortTitle(m.title)
+    : m.custom ? 'Your event' : shortTitle(m.title)
   // 悬浮卡要用的信息一并挂在元素上
   const hc = esc(JSON.stringify({
     t: title, d: desc, loc: m.location || '',
@@ -646,7 +651,7 @@ function initHoverCard() {
       <div class="hc-h">${esc(d.t)}</div>
       ${d.d ? `<div class="hc-d">${esc(d.d)}</div>` : ''}
       <div class="hc-m">${[d.loc, d.time].filter(Boolean).map(esc).join('，')}</div>
-      ${d.repeat ? '<div class="hc-m">每周重复</div>' : ''}
+      ${d.repeat ? '<div class="hc-m">Repeats weekly</div>' : ''}
       ${d.note ? `<div class="hc-note">📝 ${esc(d.note)}</div>` : ''}`
     hcEl.hidden = false
     placeHoverCard(el)
@@ -687,12 +692,12 @@ function chipHtml(e) {
   const done = isDone(e.id)
   const hc = esc(JSON.stringify({
     t: e.title,
-    d: `${courseOf(e.course)?.name || '自己加的'} · ${TYPE_BADGE[e.type] || e.type}`,
-    loc: '', time: `${e.dueDate} ${e.due ? clockOf(new Date(e.due)) : ''} 截止`,
+    d: `${courseOf(e.course)?.name || 'Your event'} · ${TYPE_BADGE[e.type] || e.type}`,
+    loc: '', time: `Due ${e.dueDate} ${e.due ? clockOf(new Date(e.due)) : ''}`,
     note: [e.userNote, e.note].filter(Boolean).join(' / '), color: colorOf(e),
   }))
   return `<div class="chip ${done ? 'done' : ''}" data-chip="${esc(e.id)}" data-hc="${hc}"
-      title="点一下可以加链接 / 备注 / 改颜色" style="--c:${colorOf(e)}">
+      title="Click to add a link / note, or recolor" style="--c:${colorOf(e)}">
     <input type="checkbox" data-id="${esc(e.id)}" ${done ? 'checked' : ''}>
     <span class="chip-t">${linkTitle(e)}${tags(e)}
       <span class="chip-time">${TYPE_LABEL[e.type] || e.type}${e.due ? ' · ' + clockOf(new Date(e.due)) : ''}</span>
@@ -709,9 +714,9 @@ const linkTitle = (e) => {
 
 function tags(e) {
   const t = []
-  if (e.provisional) t.push('<span class="tag prov">暂定</span>')
-  if (e.inferred) t.push('<span class="tag infer">推算</span>')
-  if (e.hardDeadline) t.push('<span class="tag hard">不可延</span>')
+  if (e.provisional) t.push('<span class="tag prov">tentative</span>')
+  if (e.inferred) t.push('<span class="tag infer">inferred</span>')
+  if (e.hardDeadline) t.push('<span class="tag hard">hard</span>')
   const c = courseOf(e.course)
   if (c?.graceHours && !['exam', 'lecture', 'discussion'].includes(e.type)) {
     t.push(`<span class="tag grace">+${c.graceHours}h</span>`)
@@ -733,21 +738,22 @@ function viewList() {
   // 也都收不了它 —— 整条**凭空消失**。勾选本该只是划掉，不该让条目蒸发。
   // 现在所有分组一律不按完成与否过滤，勾了就是加删除线留在原地。
   const buckets = [
-    ['已过期', all.filter((e) => e.dueDate < today)],
-    ['今天', all.filter((e) => e.dueDate === today)],
-    ['本周剩下的', all.filter((e) => e.dueDate > today && e.dueDate <= endOfWeek)],
-    ['下周', all.filter((e) => e.dueDate > endOfWeek && e.dueDate <= endOfNext)],
-    ['再往后', all.filter((e) => e.dueDate > endOfNext)],
+    ['Overdue', all.filter((e) => e.dueDate < today)],
+    ['Today', all.filter((e) => e.dueDate === today)],
+    ['Rest of this week', all.filter((e) => e.dueDate > today && e.dueDate <= endOfWeek)],
+    ['Next week', all.filter((e) => e.dueDate > endOfWeek && e.dueDate <= endOfNext)],
+    ['Later', all.filter((e) => e.dueDate > endOfNext)],
   ]
 
-  const tip = `<div class="tip">每一条右边的 <b>✎ 编辑</b> 可以贴自己的链接（贴完点标题就跳过去）、
-    写备注、单独改颜色、或者把用不上的隐藏起来。
-    想加自己的事项用顶栏的 <b>＋ 事件</b>。官网条目的日期和标题以课程网站为准，不能改。</div>`
+  const tip = `<div class="tip"><b>✎ Edit</b> on any row lets you attach your own link
+    (then clicking the title opens it), write a note, recolor it, or hide what you don't need.
+    Use <b>＋ Event</b> in the top bar to add your own items.
+    Dates and titles of scraped items follow the course site and cannot be changed.</div>`
 
   const nHidden = DATA.events.filter((e) => e.type !== 'lecture' && e.hidden).length
   const bar = nHidden
-    ? `<div class="hidden-bar"><span>有 ${nHidden} 条被隐藏</span>
-        <button id="toggle-hidden">${showHidden ? '收起' : '显示出来'}</button></div>`
+    ? `<div class="hidden-bar"><span>${nHidden} item${nHidden > 1 ? 's' : ''} hidden</span>
+        <button id="toggle-hidden">${showHidden ? 'Collapse' : 'Show them'}</button></div>`
     : ''
 
   const body = buckets.filter(([, a]) => a.length).map(([n, a]) => {
@@ -755,7 +761,7 @@ function viewList() {
     // 有已完成的就写成「未完成 / 总数」，否则只写一个数
     const count = todo === a.length ? `${a.length}` : `${todo} / ${a.length}`
     return `<div class="group-block"><h3 class="group-h">${n} · ${count}</h3>${a.map(rowHtml).join('')}</div>`
-  }).join('') || '<div class="loading">没有条目。</div>'
+  }).join('') || '<div class="loading">Nothing here.</div>'
 
   return tip + bar + body
 }
@@ -767,32 +773,32 @@ function rowHtml(e) {
 
   // 标题下面这行只留"额外信息"，类型标签已经挪到日期旁边去了
   const meta = [
-    e.windowStart ? `窗口 ${e.windowStart} → ${e.dueDate}` : '',
+    e.windowStart ? `Window ${e.windowStart} → ${e.dueDate}` : '',
     !e.windowStart && e.note ? esc(e.note) : '',
     e.userNote ? `<span class="usernote">📝 ${esc(e.userNote)}</span>` : '',
-    e.kind === 'block' && e.startTime ? `${e.startTime}–${e.endTime}${e.repeat === 'weekly' ? ' 每周' : ''}` : '',
-    e.hidden ? '已隐藏' : '',
+    e.kind === 'block' && e.startTime ? `${e.startTime}–${e.endTime}${e.repeat === 'weekly' ? ' weekly' : ''}` : '',
+    e.hidden ? 'hidden' : '',
   ].filter(Boolean).join(' · ')
 
   // 日期写成一行：2026-09-07 周一 23:59
-  const dateLine = `${e.dueDate} 周${WD_CN[wdOf(e.dueDate)]}` +
+  const dateLine = `${e.dueDate} ${WD_SHORT[wdOf(e.dueDate)]}` +
     (e.due ? ` <span class="t">${clockOf(new Date(e.due))}</span>` : '')
 
   // 官网条目删不掉（下次抓取又回来），垃圾桶对它们执行"隐藏"
-  const delTitle = e.custom ? '删除这个事件'
-    : e.hidden ? '从隐藏里恢复' : '从清单里隐藏（官网条目删不掉，只能隐藏）'
+  const delTitle = e.custom ? 'Delete this event'
+    : e.hidden ? 'Restore from hidden' : 'Hide from the list (scraped items cannot be deleted)'
 
   return `<div class="row ${done ? 'done' : ''} ${e.hidden ? 'is-hidden' : ''}" style="--c:${colorOf(e)}">
     <input type="checkbox" data-id="${esc(e.id)}" ${done ? 'checked' : ''}>
-    <span class="course">${esc(c?.name?.replace('COMPSCI ', 'CS ') || '自己加的')}</span>
+    <span class="course">${esc(c?.name?.replace('COMPSCI ', 'CS ') || 'Yours')}</span>
     <span class="title">${linkTitle(e)}${tags(e)}
       ${meta ? `<div class="meta">${meta}</div>` : ''}
     </span>
     ${badgeHtml(e.type)}
     <span class="date">${dateLine}</span>
-    <span class="cd ${done ? 'past' : cd.cls}">${done ? '已完成' : cd.text}</span>
+    <span class="cd ${done ? 'past' : cd.cls}">${done ? 'Done' : cd.text}</span>
     <button class="edit" data-edit="${esc(e.id)}"
-      title="${e.editable ? '编辑这个事件' : '加链接 / 备注 / 改颜色'}">✎ 编辑</button>
+      title="${e.editable ? 'Edit this event' : 'Add a link / note, or recolor'}">✎ Edit</button>
     <button class="del" data-del="${esc(e.id)}" title="${delTitle}">${e.hidden ? '↩' : '🗑'}</button>
   </div>`
 }
@@ -830,37 +836,37 @@ function viewLoad() {
 
   const side = `
     <div class="legend">
-      <h4>课程</h4>
+      <h4>Courses</h4>
       ${perCourse.map((c) => `<div class="lg">
         <span class="sw round" style="background:${c.color}"></span>
-        <span>${esc(c.name)}</span><span class="n">${c.n} 项未完成</span>
+        <span>${esc(c.name)}</span><span class="n">${c.n} left</span>
       </div>`).join('')}
       ${nCustom ? `<div class="lg"><span class="sw round" style="background:#f59e0b"></span>
-        <span>自己加的</span><span class="n">${nCustom} 项</span></div>` : ''}
+        <span>Your events</span><span class="n">${nCustom}</span></div>` : ''}
     </div>
 
     <div class="legend">
-      <h4>类型</h4>
+      <h4>By type</h4>
       ${perType.map(([t, n]) => `<div class="lg">
-        ${badgeHtml(t)}<span class="n">${n} 项</span>
+        ${badgeHtml(t)}<span class="n">${n}</span>
       </div>`).join('')}
     </div>
 
     <div class="legend">
-      <h4>忙碌程度（按未完成的算）</h4>
-      <div class="lg"><span class="hot" style="background:rgba(245,158,11,.12)"></span><span>轻</span><span class="n">1–3 分</span></div>
-      <div class="lg"><span class="hot" style="background:rgba(245,158,11,.28)"></span><span>中</span><span class="n">4–6 分</span></div>
-      <div class="lg"><span class="hot" style="background:rgba(239,68,68,.30)"></span><span>重</span><span class="n">7 分以上</span></div>
+      <h4>Workload (unfinished only)</h4>
+      <div class="lg"><span class="hot" style="background:rgba(245,158,11,.12)"></span><span>Light</span><span class="n">1–3 pts</span></div>
+      <div class="lg"><span class="hot" style="background:rgba(245,158,11,.28)"></span><span>Medium</span><span class="n">4–6 pts</span></div>
+      <div class="lg"><span class="hot" style="background:rgba(239,68,68,.30)"></span><span>Heavy</span><span class="n">7+ pts</span></div>
       <div class="lg" style="margin-top:6px;color:var(--label-color)">
-        <span>考试 5 · 小组项目 4 · 项目 3 · 作业 2 · Lab 1</span>
+        <span>Exam 5 · Group Project 4 · Project 3 · Homework 2 · Lab 1</span>
       </div>
     </div>
 
     ${busy.length ? `<div class="legend">
-      <h4>接下来最忙的几天</h4>
+      <h4>Busiest days ahead</h4>
       ${busy.map((b) => `<div class="lg">
-        <span>${b.d.slice(5)} 周${WD_CN[wdOf(b.d)]}</span>
-        <span class="n" style="color:var(--amber-500);font-weight:600">${b.score} 分</span>
+        <span>${b.d.slice(5)} ${WD_SHORT[wdOf(b.d)]}</span>
+        <span class="n" style="color:var(--amber-500);font-weight:600">${b.score} pts</span>
       </div>`).join('')}
     </div>` : ''}`
 
@@ -893,8 +899,8 @@ function viewLoad() {
       const items = evs.slice(0, MAX_SHOWN).map((e) => {
         const hc = esc(JSON.stringify({
           t: e.title,
-          d: `${courseOf(e.course)?.name || '自己加的'} · ${TYPE_BADGE[e.type] || e.type}`,
-          loc: '', time: `${e.dueDate} ${e.due ? clockOf(new Date(e.due)) : ''} 截止`,
+          d: `${courseOf(e.course)?.name || 'Your event'} · ${TYPE_BADGE[e.type] || e.type}`,
+          loc: '', time: `Due ${e.dueDate} ${e.due ? clockOf(new Date(e.due)) : ''}`,
           note: [e.userNote, e.note].filter(Boolean).join(' / '), color: colorOf(e),
         }))
         return `<div class="mini ${isDone(e.id) ? 'done' : ''}" data-hc="${hc}"
@@ -905,11 +911,11 @@ function viewLoad() {
         <span class="n">${d}</span>
         ${hol ? `<span class="holi">${esc(hol.name.split(' ')[0])}</span>` : ''}
         ${items}
-        ${evs.length > MAX_SHOWN ? `<span class="more">还有 ${evs.length - MAX_SHOWN} 项…</span>` : ''}
+        ${evs.length > MAX_SHOWN ? `<span class="more">+${evs.length - MAX_SHOWN} more…</span>` : ''}
       </div>`)
     }
-    return `<div class="month"><h3>${y} 年 ${m} 月</h3>
-      <div class="mgrid">${WD_CN.map((w) => `<div class="wd">${w}</div>`).join('')}${cells.join('')}</div></div>`
+    return `<div class="month"><h3>${MONTHS[m - 1]} ${y}</h3>
+      <div class="mgrid">${WD_SHORT.map((w) => `<div class="wd">${w}</div>`).join('')}${cells.join('')}</div></div>`
   }).join('')
 
   return `<div class="load-wrap">
@@ -941,7 +947,7 @@ function wire(root) {
       try {
         if (e.custom) {
           // 自己建的，真删
-          if (!confirm(`删掉「${e.title}」？`)) return
+          if (!confirm(`Delete \u201c${e.title}\u201d?`)) return
           const r = await post('/api/custom', { action: 'remove', id })
           patchAndReconcile(() => applyCustom(r.custom))
         } else if (e.hidden) {
@@ -950,8 +956,9 @@ function wire(root) {
         } else {
           // 官网条目删不掉 —— 每小时抓取会把它带回来。只能从清单里隐藏。
           if (!confirm(
-            `「${e.title}」是 ${courseOf(e.course)?.name || ''} 官网上的条目，删不掉` +
-            `（下次抓取又会回来），但可以隐藏。\n\n隐藏后在清单顶部可以随时调回来。要隐藏吗？`,
+            `\u201c${e.title}\u201d comes from the ${courseOf(e.course)?.name || ''} course site, ` +
+            `so it cannot be deleted — the next scrape would bring it back. It can be hidden instead.` +
+            `\n\nHidden items can be restored any time from the top of the list. Hide it?`,
           )) return
           await post('/api/item', { id, hidden: true })
           patchAndReconcile(() => applyItemPatch(id, { hidden: true }))
@@ -1022,13 +1029,13 @@ function openSections() {
       .filter((s) => s.course === c.key && ['discussion', 'lab'].includes(s.type))
       .sort((a, b) => a.weekday - b.weekday || a.startClock.localeCompare(b.startClock))
     if (!secs.length) return `<div class="sec-course"><h4 style="color:${c.color}">${esc(c.name)}</h4>
-      <p class="hint" style="margin:0">这门课的公开日历里没有 section 时段。</p></div>`
+      <p class="hint" style="margin:0">This course\u2019s public calendar has no section slots.</p></div>`
     const picked = DATA.state.sections[c.key] || []
     return `<div class="sec-course"><h4 style="color:${c.color}">${esc(c.name)}
-        <span style="color:var(--label-color);font-weight:400">${secs.length} 个时段</span></h4>
+        <span style="color:var(--label-color);font-weight:400">${secs.length} slots</span></h4>
       ${secs.map((s) => `<label class="sec-opt ${picked.includes(s.key) ? 'picked' : ''}">
         <input type="checkbox" data-course="${c.key}" value="${esc(s.key)}" ${picked.includes(s.key) ? 'checked' : ''}>
-        <span class="w">周${WD_CN[s.weekday]} ${s.startClock}–${s.endClock}</span>
+        <span class="w">${WD_SHORT[s.weekday]} ${s.startClock}–${s.endClock}</span>
         <span>${esc(s.title)} <span class="loc">${esc(s.location || '')}</span></span>
       </label>`).join('')}</div>`
   }).join('')
@@ -1055,7 +1062,7 @@ async function openAdd({ fresh = false } = {}) {
   const list = document.getElementById('custom-list')
   const cs = DATA.state.custom || []
   list.innerHTML = cs.length
-    ? `<h4 style="font-size:var(--text-14);margin:16px 0 6px">已加的事件（点一下可以改）</h4>` +
+    ? `<h4 style="font-size:var(--text-14);margin:16px 0 6px">Your events (click one to edit)</h4>` +
       cs.map((e) => `<div class="sec-opt" data-edit-custom="${esc(e.id)}">
           <span class="d" style="width:10px;height:10px;border-radius:50%;background:${
             (DATA.palette.find((p) => p.hue === e.color) || {}).c500 || '#f59e0b'};flex:none"></span>
@@ -1128,7 +1135,7 @@ function paintSwatches(el, current, onPick, { withLabels = false } = {}) {
 async function openColorPicker(courseKey) {
   if (!(await ensureAuth())) return
   const c = courseOf(courseKey)
-  document.getElementById('color-title').textContent = `${c.name} 的颜色`
+  document.getElementById('color-title').textContent = `Color for ${c.name}`
   const box = document.getElementById('course-swatches')
   box.className = 'swatches labeled'
   paintSwatches(box, c.colorHue, async (hue) => {
@@ -1149,7 +1156,7 @@ async function openItemEditor(e) {
   document.getElementById('item-title').textContent = e.title
   document.getElementById('item-sub').textContent =
     `${courseOf(e.course)?.name || ''} · ${TYPE_LABEL[e.type] || e.type} · ${e.dueDate}` +
-    '　（日期和标题以课程官网为准，改不了）'
+    '　(date and title follow the course site and cannot be changed)'
   const f = document.getElementById('form-item')
   f.url.value = e.userUrl || ''
   f.note.value = e.userNote || ''
@@ -1157,7 +1164,7 @@ async function openItemEditor(e) {
   paintSwatches(document.getElementById('item-swatches'), e.colorHue, (hue) => {
     f.dataset.hue = hue
   })
-  document.getElementById('item-hide').textContent = e.hidden ? '取消隐藏' : '隐藏这一条'
+  document.getElementById('item-hide').textContent = e.hidden ? 'Unhide' : 'Hide this item'
   show('modal-item')
 }
 
@@ -1208,7 +1215,7 @@ async function openCustomEditor(e) {
   paintSwatches(document.getElementById('add-swatches'), f.color.value, (hue) => {
     f.color.value = hue
   })
-  document.getElementById('add-submit').textContent = '保存修改'
+  document.getElementById('add-submit').textContent = 'Save changes'
   document.getElementById('add-cancel').hidden = false
   document.getElementById('add-delete').hidden = false
 }
@@ -1237,7 +1244,7 @@ function resetAddForm() {
   f.color.value = 'amber'
   setKind('deadline')
   paintSwatches(document.getElementById('add-swatches'), 'amber', (hue) => { f.color.value = hue })
-  document.getElementById('add-submit').textContent = '添加'
+  document.getElementById('add-submit').textContent = 'Add'
   document.getElementById('add-cancel').hidden = true
   document.getElementById('add-delete').hidden = true
 }
@@ -1247,7 +1254,7 @@ document.getElementById('add-cancel').addEventListener('click', resetAddForm)
 document.getElementById('add-delete').addEventListener('click', async () => {
   const f = document.getElementById('form-add')
   const id = f.dataset.editId
-  if (!id || !confirm('删掉这个事件？')) return
+  if (!id || !confirm('Delete this event?')) return
   try {
     const r = await post('/api/custom', { action: 'remove', id })
     resetAddForm()

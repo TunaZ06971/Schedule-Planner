@@ -20,10 +20,10 @@ export async function scrape(course, { html } = {}) {
   const $ = load(body)
 
   const table = $('table.table-bordered').first()
-  if (!table.length) throw new Error('cs61c: 找不到课表 table.table-bordered')
+  if (!table.length) throw new Error('cs61c: schedule table (table.table-bordered) not found')
 
   const grid = gridFromTable($, table[0])
-  if (grid.length < 20) throw new Error(`cs61c: 课表只有 ${grid.length} 行，明显不对`)
+  if (grid.length < 20) throw new Error(`cs61c: schedule table has only ${grid.length} rows — clearly wrong`)
 
   const events = []
   // rowspan 会让同一个单元格出现在多行里，用对象身份去重

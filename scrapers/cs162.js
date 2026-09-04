@@ -24,10 +24,10 @@ export async function scrape(course, { html } = {}) {
   const $ = load(body)
 
   const table = $('table#calendar').first()
-  if (!table.length) throw new Error('cs162: 找不到课表 table#calendar')
+  if (!table.length) throw new Error('cs162: schedule table (table#calendar) not found')
 
   const grid = gridFromTable($, table[0])
-  if (grid.length < 50) throw new Error(`cs162: 课表只有 ${grid.length} 行，明显不对`)
+  if (grid.length < 50) throw new Error(`cs162: schedule table has only ${grid.length} rows — clearly wrong`)
 
   // 第一遍：从 "Release ..." 行学出 class → 真实名字
   const nameOf = {}
@@ -75,7 +75,7 @@ export async function scrape(course, { html } = {}) {
           // 官网只给了日期，时间写的是 (TBD)/(TBA)
           provisional: tbd,
           timeAssumed: tbd,
-          note: tbd ? '官网时间仍为 TBD，等课程组公布' : '',
+          note: tbd ? 'The site still says TBD — waiting on the course staff' : '',
           sourceUrl: course.home,
         })
         continue

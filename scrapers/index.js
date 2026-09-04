@@ -23,17 +23,17 @@ const MIN_EVENTS = { cs61b: 18, cs61c: 18, cs162: 14 }
   const inConfig = new Set(COURSES.map((c) => c.key))
   const problems = []
   for (const key of inConfig) {
-    if (!SCRAPERS[key]) problems.push(`COURSES 里有 ${key}，但 SCRAPERS 里没有对应的抓取器`)
-    if (!MIN_EVENTS[key]) problems.push(`COURSES 里有 ${key}，但 MIN_EVENTS 里没有它的条目数下限`)
+    if (!SCRAPERS[key]) problems.push(`${key} is in COURSES but has no scraper in SCRAPERS`)
+    if (!MIN_EVENTS[key]) problems.push(`${key} is in COURSES but has no threshold in MIN_EVENTS`)
   }
   for (const key of Object.keys(SCRAPERS)) {
-    if (!inConfig.has(key)) problems.push(`SCRAPERS 里有 ${key}，但 COURSES 里已经没有这门课了`)
+    if (!inConfig.has(key)) problems.push(`${key} is in SCRAPERS but no longer in COURSES`)
   }
   for (const key of Object.keys(MIN_EVENTS)) {
-    if (!inConfig.has(key)) problems.push(`MIN_EVENTS 里有 ${key}，但 COURSES 里已经没有这门课了`)
+    if (!inConfig.has(key)) problems.push(`${key} is in MIN_EVENTS but no longer in COURSES`)
   }
   if (problems.length) {
-    throw new Error('课程配置对不上：\n  - ' + problems.join('\n  - '))
+    throw new Error('Course config mismatch:\n  - ' + problems.join('\n  - '))
   }
 }
 
@@ -53,13 +53,13 @@ export async function scrapeCourse(course) {
   try {
     const { events, meta } = await SCRAPERS[course.key].scrape(course)
     if (events.length < MIN_EVENTS[course.key]) {
-      throw new Error(`只抓到 ${events.length} 条（期望 ≥ ${MIN_EVENTS[course.key]}），疑似网站改版`)
+      throw new Error(`Only ${events.length} items scraped (expected \u2265 ${MIN_EVENTS[course.key]}) \u2014 the site may have changed`)
     }
     result.events = events
     result.meta = meta
     result.ok = true
   } catch (e) {
-    result.error = `课表抓取失败: ${e.message}`
+    result.error = `Schedule scrape failed: ${e.message}`
     return result
   }
 
