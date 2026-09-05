@@ -15,7 +15,7 @@ import { fetchText } from './lib/fetch.js'
 import { gridFromTable, cellText, cellLink } from './lib/table.js'
 import { extractDues } from './lib/assignment.js'
 import { TERM, inferFinalExam } from './lib/academic.js'
-import { atPT, parseBareDate } from './lib/dates.js'
+import { atPT, parseBareDate, addDays } from './lib/dates.js'
 
 const COL = { week: 0, date: 1, lecture: 2, sections: 3, lab: 4, hw: 5, proj: 6 }
 
@@ -33,6 +33,7 @@ export async function scrape(course, { html } = {}) {
   const events = []
   const seen = new Set()
   const firstDateOf = new Map() // 单元格 → 它第一次出现那行的日期
+  const weekDates = new Map()   // 周次格 → 这一周覆盖的所有上课日
 
   for (let i = 1; i < grid.length; i++) {
     const row = grid[i]
@@ -44,7 +45,16 @@ export async function scrape(course, { html } = {}) {
       if (!cell) continue
       if (!firstDateOf.has(cell)) firstDateOf.set(cell, { date: rowDate, provisional })
     }
+
+    // 周次格用 rowspan 罩住一整周，把这一周的上课日都记下来（算 survey 截止要用）
+    const wc = row[COL.week]
+    if (wc && rowDate) {
+      if (!weekDates.has(wc)) weekDates.set(wc, [])
+      weekDates.get(wc).push(rowDate)
+    }
   }
+
+  events.push(...weeklySurveys($, weekDates, course))
 
   for (let i = 1; i < grid.length; i++) {
     const row = grid[i]
@@ -138,6 +148,68 @@ export async function scrape(course, { html } = {}) {
   }
 
   return { events, meta: { rows: grid.length, unfinalized: $(table[0]).find('tr.unfinalized-row').length } }
+}
+
+/**
+ * Weekly Surveys —— 藏在课表**第 0 列（Wk.）**里。
+ *
+ * 这一列长期被完全忽略：`COL.week` 定义了却一次没读过，13 个 survey 因此全丢了
+ * （policies 里它们值 100 分）。格子形如：
+ *   <td class="week-cell" rowspan="3" id="week-35">2<br><a href="https://forms.gle/…">Survey</a></td>
+ *
+ * ⚠️ 日期是**推出来的，不是官网给的**。课表格子里只有"周次 + Survey"两个字，
+ * 没有日期也没有时间。规则来自 /policies/：每周二 23:59 截止，24 小时宽限。
+ * 全站只有一条公告给出唯一一个具体日期 —— Week 2 → 周二 9/8，正好和这条规则算出来的一致。
+ * 除 Week 2 外一律标 provisional + inferred，让界面上看得出这是推的。
+ */
+function weeklySurveys($, weekDates, course) {
+  const out = []
+  for (const [cell, dates] of weekDates) {
+    const text = cellText($, cell)
+    if (!/\bsurvey\b/i.test(text)) continue          // 17 个周次格里只有 13 个有
+    if (!dates.length) continue
+
+    const week = (text.match(/^\s*(\d+)/) || [])[1] || '?'
+
+    // 该周最后一个上课日之后的那个周二
+    let due = dates[dates.length - 1]
+    for (let i = 0; i < 8; i++) {
+      due = addDays(due, 1)
+      if (weekdayOf(due) === 2) break
+    }
+
+    // 只取周次格**内部**的链接。/policies/ 上还有两个 forms.gle
+    // （Late Add Intent、student support meeting），按"所有 forms.gle"找会误判。
+    const href = $(cell).find('a[href]').first().attr('href') || ''
+
+    // 唯一被官网公告确认过的是 Week 2
+    const confirmed = week === '2'
+
+    out.push({
+      id: `cs61b:survey:week-${week}`,
+      course: 'cs61b',
+      type: 'survey',
+      title: `Week ${week} Survey`,
+      due: atPT(due, course.dueTime),
+      dueDate: due,
+      url: href || course.home,
+      provisional: !confirmed,
+      inferred: !confirmed,
+      inferredNote: confirmed
+        ? ''
+        : 'Date derived from the policy rule (due Tuesdays 11:59 PM); only the Week 2 date is published',
+      timeAssumed: false,   // 时间是 policies 明写的
+      sourceUrl: course.home,
+    })
+  }
+  out.sort((a, b) => a.dueDate.localeCompare(b.dueDate))
+  return out
+}
+
+/** 'YYYY-MM-DD' → 0=周日，2=周二 */
+function weekdayOf(iso) {
+  const [y, m, d] = iso.split('-').map(Number)
+  return new Date(Date.UTC(y, m - 1, d)).getUTCDay()
 }
 
 // "Mini-Midterm 1: Wed Sep 23, 8-9:20 PM" / "Midterm 2: Wed Nov 4, 8-10 PM"

@@ -60,6 +60,7 @@ export const LOAD_WEIGHT = {
   homework: 2,
   checkpoint: 2,
   lab: 1,
+  survey: 0.5,      // 一份问卷，几分钟的事
   discussion: 0.5,
   custom: 1,
   other: 1,

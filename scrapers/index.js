@@ -14,7 +14,7 @@ const SCRAPERS = { cs61b, cs61c, cs162 }
 
 // 每门课至少应该抓到这么多条 deadline。抓少了说明网站改版或解析坏了 ——
 // 静默少抓比抓不到危险得多，所以这里直接判失败、保留旧数据。
-const MIN_EVENTS = { cs61b: 18, cs61c: 18, cs162: 14 }
+const MIN_EVENTS = { cs61b: 30, cs61c: 18, cs162: 14 }
 
 // 自检：COURSES / SCRAPERS / MIN_EVENTS 是三张分开维护的表，谁漏了谁都不会报错，
 // 只会在真正用到的时候抛一个看不出所以然的 "Cannot read properties of undefined"。

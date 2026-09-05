@@ -720,6 +720,7 @@ button.ghost.danger:hover { color: var(--red-500); border-color: var(--red-500);
 .badge.lab           { --b: #14b8a6; }  /* teal   */
 .badge.discussion    { --b: #0ea5e9; }  /* sky    */
 .badge.checkpoint    { --b: #a855f7; }  /* purple */
+.badge.survey        { --b: #0891b2; }  /* cyan-600 */
 .badge.custom        { --b: #71717a; }  /* zinc   */
 .badge.other         { --b: #71717a; }
 .badge.lecture       { --b: #64748b; }  /* slate  */

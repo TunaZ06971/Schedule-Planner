@@ -29,9 +29,18 @@ export async function scrape(course, { html } = {}) {
   const grid = gridFromTable($, table[0])
   if (grid.length < 50) throw new Error(`cs162: schedule table has only ${grid.length} rows — clearly wrong`)
 
-  // 第一遍：从 "Release ..." 行学出 class → 真实名字
+  // 第一遍：从 "Release ..." 行同时学两样东西 —— class → 真实名字，以及 class → 发布日期。
+  //
+  // 名字这一步是必需的：课表里三个 "Design Document Due" 文字一模一样，
+  // 只有 CSS class 能区分是哪个项目。而 class 的编号和项目编号**差一位**
+  // （proj2 其实是 Project 1），所以名字必须从 Release 行学，绝不能假设 projN = Project N。
+  //
+  // 发布日期本身不产出条目（那不是要交的东西），而是挂到对应的 deadline 上，
+  // 让你知道"什么时候能开工"，又不会把清单撑肿。
   const nameOf = {}
+  const releaseOf = {}
   for (let i = 1; i < grid.length; i++) {
+    const iso = parseBareDate(cellText($, grid[i][COL.date]), TERM.year)?.iso
     for (const col of [COL.hw, COL.proj]) {
       const cell = grid[i][col]
       if (!cell) continue
@@ -39,6 +48,7 @@ export async function scrape(course, { html } = {}) {
       const text = cellText($, cell)
       if (!cls || !/^release\b/i.test(text)) continue
       if (!nameOf[cls]) nameOf[cls] = text.replace(/^release\s+/i, '').trim()
+      if (!releaseOf[cls] && iso) releaseOf[cls] = iso
     }
   }
 
@@ -105,6 +115,18 @@ export async function scrape(course, { html } = {}) {
         ? (redundant ? base : `${base} — ${suffix}`)
         : (suffix || text)
 
+      // 官网**不公布**这两件事的日期，但它们都是必做的：
+      //   · Design Review —— 交完设计文档还要约一次口头评审，报名链接发在 Ed
+      //   · Peer/Group Evaluation —— 每个小组项目结束后的组内互评，迟交有罚分
+      // 不给它们造假日期（那是上次 61B lab 的教训），只在最相关的条目上留一句提醒。
+      const reminders = []
+      if (/design document/i.test(text)) {
+        reminders.push('Also book your Design Review — mandatory, not scheduled on the course site (link posted on Ed)')
+      }
+      if (/code and final report/i.test(text)) {
+        reminders.push('Group evaluation is also due for this project (uses homework slip days)')
+      }
+
       events.push({
         id: `cs162:${type}:${cls || slug(text)}:${slug(suffix || text)}`,
         course: 'cs162',
@@ -112,6 +134,8 @@ export async function scrape(course, { html } = {}) {
         title: title.trim(),
         due: atPT(iso, course.dueTime),
         dueDate: iso,
+        releaseDate: releaseOf[cls] || '',
+        note: reminders.join(' · '),
         url,
         // 设计文档不能用 slip day，迟交直接 0 分
         hardDeadline: /design document/i.test(text),

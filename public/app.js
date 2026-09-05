@@ -15,13 +15,14 @@ const TYPE_LABEL = {
   homework: 'Homework', lab: 'Lab', project: 'Project', group_project: 'Group Project',
   discussion: 'Discussion', exam: 'Exam', lecture: 'Lecture', checkpoint: 'Checkpoint',
   custom: 'Custom', other: 'Other', review: 'Review', office_hours: 'Office Hours',
+  survey: 'Survey',
 }
 
 /** 清单里那个实心圆角标签上写的字（用英文，和 Berkeleytime 的语感一致） */
 const TYPE_BADGE = {
   homework: 'Homework', lab: 'Lab', project: 'Project', group_project: 'Group Project',
   discussion: 'Discussion', exam: 'Exam', checkpoint: 'Checkpoint',
-  custom: 'Custom', other: 'Other', lecture: 'Lecture', review: 'Review',
+  custom: 'Custom', other: 'Other', lecture: 'Lecture', review: 'Review', survey: 'Survey',
 }
 const badgeHtml = (type) =>
   `<span class="badge ${esc(type)}">${esc(TYPE_BADGE[type] || type)}</span>`
@@ -693,7 +694,8 @@ function chipHtml(e) {
   const hc = esc(JSON.stringify({
     t: e.title,
     d: `${courseOf(e.course)?.name || 'Your event'} · ${TYPE_BADGE[e.type] || e.type}`,
-    loc: '', time: `Due ${e.dueDate} ${e.due ? clockOf(new Date(e.due)) : ''}`,
+    loc: e.releaseDate ? `Released ${e.releaseDate}` : '',
+    time: `Due ${e.dueDate} ${e.due ? clockOf(new Date(e.due)) : ''}`,
     note: [e.userNote, e.note].filter(Boolean).join(' / '), color: colorOf(e),
   }))
   return `<div class="chip ${done ? 'done' : ''}" data-chip="${esc(e.id)}" data-hc="${hc}"
@@ -774,6 +776,8 @@ function rowHtml(e) {
   // 标题下面这行只留"额外信息"，类型标签已经挪到日期旁边去了
   const meta = [
     e.windowStart ? `Window ${e.windowStart} → ${e.dueDate}` : '',
+    // 发布日期不是截止时间，所以不单独成条，只挂在这里告诉你"什么时候能开工"
+    e.releaseDate ? `Released ${e.releaseDate}` : '',
     !e.windowStart && e.note ? esc(e.note) : '',
     e.userNote ? `<span class="usernote">📝 ${esc(e.userNote)}</span>` : '',
     e.kind === 'block' && e.startTime ? `${e.startTime}–${e.endTime}${e.repeat === 'weekly' ? ' weekly' : ''}` : '',
